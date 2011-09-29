@@ -40,6 +40,8 @@ struct card {
 	int bus;
 	char model[256];
 	char oem[256];
+	u32 subvendor;
+	u32 subdevice;
 };
 
 struct card *cards;
@@ -132,7 +134,10 @@ unsigned int enum_cards()
 					strncpy(card->model, namebuf, sizeof(namebuf));
 					card->model[sizeof(namebuf)-1] = '\0';
 					strncpy(card->oem, oembuf, sizeof(oembuf));
-					card->oem[sizeof(oembuf)-1] = '\0';				
+					card->oem[sizeof(oembuf)-1] = '\0';
+
+					card->subvendor = subvendor;
+					card->subdevice = subdevice;
 				}
 			}
 		}
@@ -183,7 +188,10 @@ void show_info(struct card *card, struct rv8xx_i2c *i2c)
 	unsigned char data;
 
 	printf("Device [%d]: %s\n", card->bus, card->model);
-	printf("            %s\n\n", card->oem);
+	if (!opt_debug)
+		printf("            %s\n\n", card->oem);
+	else
+		printf("            %s (%x-%x)\n\n", card->oem, card->subvendor, card->subdevice);
 
 	data = vt1165_device_id(i2c);
 
