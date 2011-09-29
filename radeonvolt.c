@@ -16,11 +16,12 @@
  */
 #include <stdlib.h>
 #include <stdio.h>
-# include <string.h>
+#include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/mman.h>
 #include <pci/pci.h>
+#include <stdbool.h>
 
 #include "i2c.h"
 #include "vt1165.h"
@@ -37,10 +38,12 @@ struct mem_ctx {
 struct card {
 	pciaddr_t base;
 	int bus;
-	char name[256];
+	char model[256];
+	char oem[256];
 };
 
 struct card *cards;
+bool opt_debug = false;
 
 /**
  * Maps PCI device memory to userspace
@@ -89,30 +92,47 @@ unsigned int enum_cards()
 	struct pci_access *pci;
 	struct pci_dev *dev;
 	struct card *card = NULL;
+	u32 subvendor, subdevice;
 	char namebuf[255];
+	char oembuf[255];
 	int i, num_cards = 0;
 
 	pci = pci_alloc();
 	pci_init(pci);
 
-	pci_scan_bus(pci);
+	pci_scan_bus(pci);	
 
 	for(dev = pci->devices; dev && num_cards < MAX_CARDS; dev = dev->next) {
 		if(dev->device_class == PCI_CLASS_DISPLAY_VGA &&
-		   dev->vendor_id == 0x1002 && dev->device_id == 0x6899) {
+			dev->vendor_id == 0x1002) {
 			card = NULL;
+
+			if (opt_debug) {
+				char tmpbuf[255];
+
+				pci_lookup_name(pci, tmpbuf, sizeof(tmpbuf), 
+					PCI_LOOKUP_VENDOR, dev->vendor_id);
+				printf("Vendor: %s (%x-%x)\n", tmpbuf, dev->vendor_id, dev->device_id);
+			}
+
+			subvendor = pci_read_word(dev, PCI_SUBSYSTEM_VENDOR_ID);
+			subdevice = pci_read_word(dev, PCI_SUBSYSTEM_ID);
 
 			for(i = 0; i < 6 && !card; i++) {
 				if(dev->size[i] == RADEON_IO_REGION_SIZE) {
 					pci_lookup_name(pci, namebuf, sizeof(namebuf), 
 						PCI_LOOKUP_DEVICE, dev->vendor_id, dev->device_id);
+					pci_lookup_name(pci, oembuf, sizeof(oembuf),
+						PCI_LOOKUP_SUBSYSTEM | PCI_LOOKUP_VENDOR, subvendor, subdevice);
 
 					card = &cards[num_cards++];
 					card->base = dev->base_addr[i];
 					card->bus = dev->bus;
 
-					strncpy(card->name, namebuf, sizeof(namebuf));
-					card->name[sizeof(namebuf)-1] = '\0';
+					strncpy(card->model, namebuf, sizeof(namebuf));
+					card->model[sizeof(namebuf)-1] = '\0';
+					strncpy(card->oem, oembuf, sizeof(oembuf));
+					card->oem[sizeof(oembuf)-1] = '\0';				
 				}
 			}
 		}
@@ -162,7 +182,8 @@ void show_info(struct card *card, struct rv8xx_i2c *i2c)
 {
 	unsigned char data;
 
-	printf("Device [%d]: %s\n", card->bus, card->name);
+	printf("Device [%d]: %s\n", card->bus, card->model);
+	printf("            %s\n\n", card->oem);
 
 	data = vt1165_device_id(i2c);
 
@@ -200,6 +221,7 @@ void show_usage()
 	printf("Optional arguments:\n");
 	printf("  --device  device to query/modify\n");
 	printf("  --vcore    set core voltage (in V)\n");
+	printf("  --debug	 show debug messages\n");
 	printf("\nExample: radeonvolt --device 0 --vcore 1.0875\n");
 }
 
@@ -212,20 +234,22 @@ int main(int argc, char *argv[])
 	int device = -1;
 	int i;
 
-	if(argc % 2 != 1) {
-		show_usage();
-		return 1;
-	}
-
-	for(i = 1; i < (argc-1); i++) {
+	for(i = 1; i <= (argc-1); i++) {
 		if(!strcmp(argv[i], "--device")) {
 			device = atoi(argv[++i]);
 		} else if(!strcmp(argv[i], "--vcore")) {
 			vddc = atof(argv[++i]);
+		} else if(!strcmp(argv[i], "--debug")) {
+			opt_debug = true;
 		} else {
 			show_usage();
 			return 1;
 		}
+	}
+
+	if ((device == -1) ^ (vddc == -1)) {
+		printf("Error: please specify device and core voltage\n");
+		return 1;
 	}
 
 	cards = malloc(sizeof(struct card) * MAX_CARDS);
