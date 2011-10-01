@@ -198,7 +198,10 @@ void show_info(struct card *card, struct rv8xx_i2c *i2c)
 	if(data != VT1165_DEVICE_ID) {
 		fprintf(stderr, "Unsupported i2c device (%02x)\n", data);
 		return;
-	}
+	} else if (opt_debug)
+      fprintf(stderr, "Supported i2c device (%02x)\n", data);
+		return;
+
 
 	if(vt1165_vid_mode(i2c) == 3) {
 		float voltage = vt1165_get_voltage(i2c, 2);
