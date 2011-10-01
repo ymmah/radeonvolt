@@ -187,11 +187,11 @@ void show_info(struct card *card, struct rv8xx_i2c *i2c)
 {
 	unsigned char data;
 
-	printf("Device [%d]: %s\n", card->bus, card->model);
+	printf("Device [%02d]: %s\n", card->bus, card->model);
 	if (!opt_debug)
-		printf("            %s\n\n", card->oem);
+		printf("             %s\n\n", /*card->bus < 10 ? 12 : 13,*/ card->oem);
 	else
-		printf("            %s (%x-%x)\n\n", card->oem, card->subvendor, card->subdevice);
+		printf("             %s (%x-%x)\n\n", /*card->bus < 10 ? 12 : 13, */card->oem, card->subvendor, card->subdevice);
 
 	data = vt1165_device_id(i2c);
 
@@ -199,7 +199,7 @@ void show_info(struct card *card, struct rv8xx_i2c *i2c)
 		fprintf(stderr, "Unsupported i2c device (%02x)\n", data);
 		return;
 	} else if (opt_debug)
-      fprintf(stderr, "Supported i2c device (%02x)\n", data);
+		fprintf(stderr, "Supported i2c device (%02x)\n", data);
 		return;
 
 
@@ -231,7 +231,7 @@ void show_usage()
 	printf("Usage: radeonvolt [options]\n\n");
 	printf("Optional arguments:\n");
 	printf("  --device  device to query/modify\n");
-	printf("  --vcore    set core voltage (in V)\n");
+	printf("  --vcore	 set core voltage (in V)\n");
 	printf("  --debug	 show debug messages\n");
 	printf("\nExample: radeonvolt --device 0 --vcore 1.0875\n");
 }
