@@ -1,4 +1,4 @@
-CC=gcc
+CC=gcc -m32
 CFLAGS=-O3 -Wall
 LDFLAGS=-lpci
 

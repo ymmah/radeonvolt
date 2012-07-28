@@ -98,8 +98,15 @@ unsigned int enum_cards()
 	pci_scan_bus(pci);
 
 	for(dev = pci->devices; dev && num_cards < MAX_CARDS; dev = dev->next) {
-		if(dev->device_class == PCI_CLASS_DISPLAY_VGA &&
-		   dev->vendor_id == 0x1002 && dev->device_id == 0x6899) {
+		if(
+                    dev->device_class == PCI_CLASS_DISPLAY_VGA	&&
+                    dev->vendor_id == 0x1002			&&
+                    (
+			dev->device_id == 0x6899	||
+			dev->device_id == 0x689c
+                    )
+		)
+		{
 			card = NULL;
 
 			for(i = 0; i < 6 && !card; i++) {
